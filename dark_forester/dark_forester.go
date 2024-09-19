@@ -20,7 +20,10 @@ import (
 // Entry point of dark_forester.
 // Before Anything, check /global/config to correctly parametrize the bot
 
+// [kyzooghost] Empty collection of goroutines - collection of concurrent tasks
 var wg = sync.WaitGroup{}
+
+// [kyzooghost] Channels used to communicate between goroutines
 var TopSnipe = make(chan *big.Int)
 
 // convert WEI to ETH
@@ -47,9 +50,17 @@ func StreamNewTxs(client *ethclient.Client, rpcClient *rpc.Client) {
 	newTxsChannel := make(chan common.Hash)
 
 	// Subscribe to receive one time events for new txs
+	// [kyzooghost] Create subscription, get subscribed 'newPendingTransactions' events from channel
 	_, err := rpcClient.EthSubscribe(
 		context.Background(), newTxsChannel, "newPendingTransactions", // no additional args
 	)
+
+	/**
+	 * [kyzooghost] context.Context to manage long-running or async tasks
+	 * - Propagate cancellation request across goroutines
+	 * - Specify deadline or timeout
+	 * - Pass request-scoped values
+	 */
 
 	if err != nil {
 		fmt.Println("error while subscribing: ", err)
@@ -117,6 +128,7 @@ func StreamNewTxs(client *ethclient.Client, rpcClient *rpc.Client) {
 		fmt.Println("not activated")
 	}
 	chainID, _ := client.NetworkID(context.Background())
+	// [kyzooghost] EIP155 add chain-specific ID to prevent replay attack across chains
 	signer := types.NewEIP155Signer(chainID)
 
 	for {
@@ -127,6 +139,7 @@ func StreamNewTxs(client *ethclient.Client, rpcClient *rpc.Client) {
 			tx, is_pending, _ := client.TransactionByHash(context.Background(), transactionHash)
 			// If tx is valid and still unconfirmed
 			if is_pending {
+				// [kyzooghost] If we ditch the return values, what is the point of this call?
 				_, _ = signer.Sender(tx)
 				handleTransaction(tx, client)
 			}
@@ -139,22 +152,29 @@ func handleTransaction(tx *types.Transaction, client *ethclient.Client) {
 }
 
 func main() {
-
+	// [kyzooghost] Parse CLI argument
 	// we say <place_holder> for the defval as it is anyway filtered to geth_ipc in the switch
 	ClientEntered := flag.String("client", "xxx", "Gateway to the bsc protocol. Available options:\n\t-bsc_testnet\n\t-bsc\n\t-geth_http\n\t-geth_ipc")
 	flag.Parse()
 
+	// [kyzooghost] Why don't we just create the *eth.Client object, and access *rpc.Client property on it?
+	// [kyzooghost] I don't understand this reflection use, and we are also calling GetCurrentClient() twice?
 	rpcClient := services.InitRPCClient(ClientEntered)
 	client := services.GetCurrentClient()
 
+	// [kyzooghost] Provide initialized environment variables in 'global' object
 	global.InitDF(client)
 
 	// init goroutine Clogg if global.Sniping == true
 	if global.Sniping == true {
+		// [kyzooghost] Call before starting a goroutine to indicate you are waiting for it to complete
 		wg.Add(1)
+		// [kyzooghost] Define new goroutine with anonymous function
 		go func() {
 			services.Clogg(client, TopSnipe)
+			// [kyzooghost] call `defer wg.Done()` within goroutine when completed
 			wg.Done()
+			// [kyzooghost] Syntax for immediately invoked
 		}()
 	}
 

@@ -2,6 +2,7 @@ from brownie import *
 from math import floor
 from time import sleep
 import itertools
+# [kyzooghost] Custom way of importing environment variables
 from variables import *
 import itertools
 import json
@@ -13,13 +14,17 @@ from pynput.keyboard import Key, Controller
 counter = itertools.count()
 
 #///////////// EXPECTATIONS //////////////////////////////////////
+
+# [kyzooghost] Get BNB price in USD, using Pancake WBNB-BUSD pool
 def _bnbPrice():
     assert chain.id == 56, "_bnbPrice: WRONG NETWORK. This function only works on bsc mainnet"
     pair_busd = interface.IPancakePair(BUSD_WBNB_PAIR_ADDRESS)
     (reserveUSD, reserveBNB, _) = pair_busd.getReserves()
+    # [kyzooghost] Damn, this was the answer for price for the ConsenSys interview Q - priceA = reserveB/reserveA
     price_busd = reserveBNB / reserveUSD
     return round(price_busd, 2)
 
+# [kyzooghost] Get projected price, given new reserveIn and reserveOut
 def _quote(amin, reserveIn, reserveOut):
     if reserveIn == 0 and reserveOut == 0:
         return 'empty reserves, no quotation'
@@ -32,21 +37,25 @@ def _expectations(my_buy, external_buy, reserveIn, reserveOut, queue_number):
     i = 1
     addIn = 0
     subOut = 0
+    # [kyzooghost] Project making the same external_buy repeatedly?
     while i < queue_number:
         amout = _quote(external_buy, reserveIn + addIn, reserveOut - subOut)
         addIn += external_buy
         subOut += amout
         i += 1
+    # [kyzooghost] Given multiple external_buy's, what does my_buy get?
     bought_tokens = _quote(my_buy, reserveIn + addIn, reserveOut - subOut)
     price_per_token = my_buy / bought_tokens
     return bought_tokens, price_per_token, addIn
 
+# [kyzooghost] Project if 1-30 buys before me, what will my buying price be?
 def expectations(my_buy, external_buy, reserveIn, reserveOut, base_asset="BNB"):
 
     bnbPrice = _bnbPrice()
     print(
         f'--> if the liq added is {reserveIn} BNB / {reserveOut} tokens and I want to buy with {my_buy} BNB : \n')
     for i in range(1, 30, 1):
+        # [kyzooghost] Smells like wasted computation cycles here. We could use result from previous loop, rather than starting from scratch.
         (bought_tokens, price_per_token, addIn) = _expectations(
             my_buy, external_buy, reserveIn, reserveOut, i)
 
@@ -63,6 +72,7 @@ def expectations(my_buy, external_buy, reserveIn, reserveOut, base_asset="BNB"):
 
 #///////////// SWARMER //////////////////////////////////////
 ACCOUNTSLIST = []
+# [kyzooghost] ?Infinite iterator. `next(ACCOUNTINDEX)` will both get current value, and move iterator
 ACCOUNTINDEX = itertools.count()
 
 
@@ -76,7 +86,7 @@ def create_temp_address_book(TEMPPATH):
         with open(TEMPPATH, "w") as address_book:
             pass
 
-
+# [kyzooghost] Why do we need a final 'bee_book', can we not just hold address list in memory then save as final json for persistence?
 def save_address_book(TEMPPATH, PATH):
     print("---> Saving address book...")
     with open(TEMPPATH, "r") as address_book:
@@ -84,6 +94,7 @@ def save_address_book(TEMPPATH, PATH):
         for account in data:
             addr = account["address"]
             balance = accounts.at(addr).balance() / 10**18
+            # [kyzooghost] I don't see this balance value in the `bee_book.json` file
             account["balance"] = balance
 
     with open(PATH, "w") as final_address_book:
@@ -92,6 +103,7 @@ def save_address_book(TEMPPATH, PATH):
 
 def create_account():
     idx = next(ACCOUNTINDEX)
+    # [kyzooghost] Did we just change type of 'new_account' variable?
     new_account = web3.eth.account.create()
     new_account = accounts.add(new_account.key.hex())
     pk = new_account.private_key
@@ -103,8 +115,9 @@ def create_account():
     ACCOUNTSLIST.append(account_dict)
     return new_account
 
-
+# [kyzooghost] Transfer half of balance to new address
 def swarming(acc):
+    # [kyzooghost] Why sleep(10)?
     sleep(10)
     new_account = create_account()
     pk = acc["pk"]
@@ -136,6 +149,7 @@ def _initSwarm(TEMPPATH, PATH, ROUNDS, NUMBERBNB):
     for _ in range(ROUNDS):
         n = next(counter)
         print(f'\nROUND n°{n}\n')
+        # [kyzooghost] I assume this is because we are mutating ACCOUNTSLIST during the loop, then we just iterate across the known indexes rather than doing a deep copy
         temp_ACCOUNTSLIST = ACCOUNTSLIST.copy()
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -144,6 +158,7 @@ def _initSwarm(TEMPPATH, PATH, ROUNDS, NUMBERBNB):
             for f in concurrent.futures.as_completed(results):
                 print(f.result())
 
+    # [kyzooghost] Append `ACCOUNTSLIST` data structure to TEMPPATH
     with open(TEMPPATH, "a") as address_book:
         json.dump(ACCOUNTSLIST, address_book, indent=2)
 
@@ -166,21 +181,27 @@ def _refund(entry, me):
 
 
 def refund(PATH):
+    # [kyzooghost] ?Way of providing custom Wallet objects to Brownie context
     me = accounts.load('press1')
 
     with open(PATH, "r") as book:
         data = json.load(book)
 
+        # [kyzooghost] Create threadpool
         with concurrent.futures.ThreadPoolExecutor() as executor:
-
+            # [kyzooghost] Submit '_refund' function with args [acc, me] to execute async on separate thread
+            # [kyzooghost] Return Future object (like JS Promise)
             results = [executor.submit(_refund, acc, me)
                        for acc in data]
+            # Iterator across completed promises. Iterate in order of completion, not order of starting.
             for f in concurrent.futures.as_completed(results):
                 print(f.result())
 
     pending = [True]
+    # [kyzooghost] This seems inefficient, you don't need to re-add completed transactions back to your pending[] array
     while True in pending:
         pending.clear()
+        # [kyzooghost] Interesting that Brownie maintain 'history' object which contains txHistory for current context
         for tx in history:
             pending.append(tx.status == -1)
         print(f'remaining pending tx: {pending.count(True)}')
@@ -191,6 +212,7 @@ def refund(PATH):
 
 def _checkBalances(entry):
     pk = entry["pk"]
+    # [kyzooghost] Brownie object representing EVM account
     acc = accounts.add(pk)
     balance = acc.balance()
     if balance / 10**18 > 0.0002:
@@ -273,6 +295,7 @@ def sendGlobalToDarkForester():
         keyboard.tap(Key.enter)
         sleep(0.2)
 
+        # [kyzooghost] Use Secure Copy Protocol (SCP) to copy folder to cloud VM
         keyboard.type(
             'scp -i bsc_useast.pem -r ./PATH/dark_forester/global ubuntu@xxxxxxxxx.amazonaws.com:dark_forester')
         sleep(0.2)
@@ -333,17 +356,22 @@ def configureTrigger():
         print(
             f'---> Token balance of admin: {tkn_balance_old/10**18 if tkn_balance_old != 0 else 0}\n\n')
 
+# [kyzooghost] Setup beebook + Trigger2.configureSnipe()
 def main():
 
     print("\n///////////// EXPECTATION PHASE //////////////////////////\n")
+    # [kyzooghost] Project varying previous external buys, and your buy-in price with each scenario
     expectations(MYBUY, EXTERNAL_BUY, RESERVE_IN, RESERVE_OUT)
     print("\n///////////// BEE BOOK CREATION PHASE //////////////////////////////\n")
+    # [kyzooghost] Create 'beebook', refunding previous saved beebook if pre-existing balances
     createBeeBook()
     print("\n///////////// SELLERS BOOK CREATION PHASE //////////////////////////////\n")
+    # [kyzooghost] Only for sandwich module, same as createBeeBook but each 'bee' is registered in 'authenticatedSeller' map in Trigger2.sol
     ipt = input("Press 'y' to check for seller book. Any other key to skip")
     if ipt.lower() == "y":
         createSellersBook()
     print("\n///////////// DATA TRANSMISSION TO AWS /////////////////////\n")
     sendGlobalToDarkForester()
     print("\n///////////// TRIGGER CONFIGURATION PHASE /////////////////////\n")
+    # [kyzooghost] Wrapper for Trigger2.configureSnipe() function
     configureTrigger()

@@ -1,3 +1,5 @@
+# [kyzooghost] .env file essentially
+
 from brownie import *
 
 #///////////// TESTS ////////////////////////////////////////

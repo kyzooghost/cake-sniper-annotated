@@ -76,6 +76,8 @@ contract Trigger2 is Ownable {
     
     address payable private administrator;
     address private sandwichRouter = 0xE86d6A7549cFF2536918a206b6418DE0baE95e99;
+
+    // Why do we need to set storage variable for each 'snipe' attempt? Why not pass as param?
     uint private wbnbIn;
     uint private minTknOut;
     address private tokenToBuy;
@@ -104,13 +106,16 @@ contract Trigger2 is Ownable {
     function snipeListing() external returns(bool success){
         
         require(IERC20(wbnb).balanceOf(address(this)) >= wbnbIn, "snipe: not enough wbnb on the contract");
+        // [kyzooghost] 'approve' only wbnbIn amount - safeguard
         IERC20(wbnb).approve(sandwichRouter, wbnbIn);
         require(snipeLock == false, "snipe: sniping is locked. See configure");
+        // [kyzooghost] Re-locked after every 'snipeListing' call?
         snipeLock = true;
         
         address[] memory path;
         if (tokenPaired != wbnb){
             path = new address[](3);
+            // [kyzooghost] Assume start at wBNB swap?
             path[0] = wbnb;
             path[1] = tokenPaired;
             path[2] = tokenToBuy;
@@ -126,6 +131,7 @@ contract Trigger2 is Ownable {
               minTknOut,
               path, 
               administrator,
+                // [kyzooghost] Ok deadline of 2 minutes, isn't this too big?
               block.timestamp + 120
         );
         return true;

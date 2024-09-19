@@ -225,6 +225,7 @@ contract SandwichRouter {
     }    
     // **** SWAP ****
     // requires the initial amount to have already been sent to the first pair
+    // [kyzooghost] Even if you change the function name, you still have to make IPancakePair.swap() call
     function _dwich(uint[] memory amounts, address[] memory path, address _to) internal virtual {
         for (uint i; i < path.length - 1; i++) {
             (address input, address output) = (path[i], path[i + 1]);
@@ -237,6 +238,7 @@ contract SandwichRouter {
             );
         }
     }
+    // [kyzooghost] Ok this is just copy-paste of logic for UniswapV2Router.swapExactTokensForTokens
     function sandwichExactTokensForTokens(
         uint amountIn,
         uint amountOutMin,

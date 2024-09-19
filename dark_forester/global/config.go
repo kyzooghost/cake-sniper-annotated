@@ -27,7 +27,7 @@ var accountAddress = "0x81F37cc0EcAE1dD1c89D79A98f857563873cFA76"
 var accountPk = "de8c0753508570d6bc3aea027a5896401c82fe997d3717d19c785Fbbee128695"
 var DARK_FORESTER_ACCOUNT Account
 
-///////// CONST //////////////////
+// /////// CONST //////////////////
 var WBNB_ADDRESS = common.HexToAddress("0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c")
 var BUSD_ADDRESS = common.HexToAddress("0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56")
 var CAKE_FACTORY_ADDRESS = common.HexToAddress("0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73")
@@ -117,12 +117,12 @@ var STOPLOSSBALANCE *big.Int
 var AMINMARGIN *big.Int
 var MAXGWEIFRONTRUN *big.Int
 
-///////// BIG TRANSFERS CONFIG //////////
+// /////// BIG TRANSFERS CONFIG //////////
 var BNB = "50000000000000000000" // 50 BNB
 var BigTransfer big.Int
 var AddressesWatched = make(map[common.Address]AddressData)
 
-///////////// TYPES /////////////////
+// /////////// TYPES /////////////////
 type SnipeConfiguration struct {
 	TokenAddress common.Address // token address to monitor
 	TokenPaired  common.Address
@@ -157,7 +157,7 @@ type Account struct {
 	RawPk   *ecdsa.PrivateKey
 }
 
-///////////// INITIIALISER FUNCS /////////////////
+// /////////// INITIIALISER FUNCS /////////////////
 func _initConst(client *ethclient.Client) {
 	DARK_FORESTER_ACCOUNT.Address = common.HexToAddress(accountAddress)
 	DARK_FORESTER_ACCOUNT.Pk = accountPk
@@ -252,6 +252,7 @@ func _initSandwicher() {
 		IN_SANDWICH_BOOK[market] = true
 	}
 	file, _ := os.Create("./global/sandwich_book_to_test.json")
+	// [kyzooghost] Writer with buffer
 	writer := bufio.NewWriter(file)
 	_, err = writer.WriteString("[\n")
 	writer.Flush()
@@ -298,7 +299,9 @@ func InitDF(client *ethclient.Client) {
 
 	// initialize BIG_BNB_TRANSFER
 	if BIG_BNB_TRANSFER == true {
+		// [kyzooghost] Create big.Int pointer from string type
 		bnb, _ := new(big.Int).SetString(BNB, 10)
+		// [kyzooghost] deref the pointer to get the big.Int object directly
 		BigTransfer = *bnb
 	}
 

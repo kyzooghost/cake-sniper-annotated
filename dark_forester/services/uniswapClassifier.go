@@ -16,6 +16,7 @@ import (
 )
 
 // listing of pcs/uni function selectors of interest. We use the bytes version as we want to be super fast
+// [kyzooghost] Interesting to list function selectors like this
 var swapExactETHForTokens = [4]byte{0x7f, 0xf3, 0x6a, 0xb5}
 var swapExactTokensForETH = [4]byte{0x18, 0xcb, 0xaf, 0xe5}
 var swapExactTokensForTokens = [4]byte{0x38, 0xed, 0x17, 0x39}

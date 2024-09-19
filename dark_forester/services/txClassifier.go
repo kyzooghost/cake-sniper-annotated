@@ -14,6 +14,7 @@ import (
 var SANDWICHWATCHDOG = false
 
 // allow atomic treatment of Pancakeswap pending tx
+// [kyzooghost] Hmm do we need to lock handleUniswapTrade() like this?
 var UNISWAPBLOCK = false
 
 // sniping is considered as a one time event. Lock the fuctionality once a snipe occured
@@ -29,6 +30,7 @@ var SomeoneTryToFuckMe = make(chan struct{}, 1)
 var Sellers []Seller
 
 // Core classifier to tag txs in the mempool before they're executed. Only used for PCS tx for now but other filters could be added
+// [kyzooghost] I don't like how coupled the sandwich code is with the liquidity-sniping code, I want Sandwich case to be a separate but interchangeable object to BigTransfer and UniswapSwiping cases mmm.
 func TxClassifier(tx *types.Transaction, client *ethclient.Client, topSnipe chan *big.Int) {
 	if SANDWICHWATCHDOG == false {
 		if len(Sellers) == 0 {

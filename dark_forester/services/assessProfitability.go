@@ -62,10 +62,13 @@ func _binarySearch(amountToTest, Rtkn0, Rbnb0, txValue, amountOutMinVictim *big.
 	// 1) we don't break victim's slippage with amountToTest
 	if amountTknVictimWillBuy1.Cmp(amountOutMinVictim) == 1 {
 		// 2) engage MAXBOUND on the sandwich if MAXBOUND doesn't break slippage
+		// [kyzooghost] This is so weird, if we get to the top of the ladder, we just early return it anyway?
+		// [kyzooghost] This special treatment of the MINBOUND and MAXBOUND is quite weird
 		if amountToTest.Cmp(global.MAXBOUND) == 0 {
 			BinaryResult = &BinarySearchResult{global.MAXBOUND, amountTknImBuying1, amountTknVictimWillBuy1, Rtkn1, Rbnb1, big.NewInt(0)}
 			return
 		}
+		// [kyzooghost] Add BASE_INCREMENT
 		myMaxBuy := amountToTest.Add(amountToTest, global.BASE_UNIT)
 		amountTknImBuying2 := _getAmountOut(myMaxBuy, Rtkn0, Rbnb0)
 		var Rtkn1Test = new(big.Int)
@@ -74,6 +77,9 @@ func _binarySearch(amountToTest, Rtkn0, Rbnb0, txValue, amountOutMinVictim *big.
 		Rbnb1Test.Add(Rbnb0, myMaxBuy)
 		amountTknVictimWillBuy2 := _getAmountOut(txValue, Rtkn1Test, Rbnb1Test)
 		// 3) if we go 1 step further on the ladder and it breaks the slippage, that means that amountToTest is really the amount of WBNB that we can engage and milk the maximum of profits from the sandwich.
+		// [kyzooghost] Wtf, this is some wacky linear search from the bottom of the ladder.
+		// [kyzooghost] A real binary search implementation would be - i.) Verify min and max, ii.) Binary search within
+		// [kyzooghost] This is inefficient from both time- and space- complexity POV - not doing a binary search, and wasting O(N) space on the `SANDWICHER_LADDER` data structure
 		if amountTknVictimWillBuy2.Cmp(amountOutMinVictim) == -1 {
 			BinaryResult = &BinarySearchResult{amountToTest, amountTknImBuying1, amountTknVictimWillBuy1, Rtkn1, Rbnb1, big.NewInt(0)}
 		}
@@ -82,6 +88,7 @@ func _binarySearch(amountToTest, Rtkn0, Rbnb0, txValue, amountOutMinVictim *big.
 }
 
 // test if we break victim's slippage with MNBOUND WBNB engaged
+// [kyzooghost] You mean violate victim 'amountOutMin' and cause tx reversion
 func _testMinbound(Rtkn, Rbnb, txValue, amountOutMinVictim *big.Int) int {
 
 	amountTknImBuying := _getAmountOut(global.MINBOUND, Rtkn, Rbnb)
@@ -93,11 +100,17 @@ func _testMinbound(Rtkn, Rbnb, txValue, amountOutMinVictim *big.Int) int {
 	return amountTknVictimWillBuy.Cmp(amountOutMinVictim)
 }
 
+// [kyzooghost] Linear search from bottom of 'ladder' for maxBuy amount
 func getMyMaxBuyAmount2(Rtkn0, Rbnb0, txValue, amountOutMinVictim *big.Int, arrayOfInterest []*big.Int) {
 	var wg = sync.WaitGroup{}
 	// test with the minimum value we consent to engage. If we break victim's slippage with our MINBOUND, we don't go further.
+	// [kyzooghost] So we are just iterating up the ladder here? We don't really need this '_testMinbound'
+	// [kyzooghost] Especially since the first 10 lines of '_binarySearch()' is this function
 	if _testMinbound(Rtkn0, Rbnb0, txValue, amountOutMinVictim) == 1 {
+		// [kyzooghost] Also how is this a binary search if we are iterating through the 'arrayOfInterest'
 		for _, amountToTest := range arrayOfInterest {
+			// [kyzooghost] What is the point of doing the binary search in a goroutine here? Given that we use wg.Wait() at the end, it's a blocking operation anyway, hence it's the same as if we did it in regular synchronous code?
+			// [kyzooghost] Is there other goroutines before this, that we are waiting for as well?
 			wg.Add(1)
 			go func() {
 				_binarySearch(amountToTest, Rtkn0, Rbnb0, txValue, amountOutMinVictim)
@@ -113,6 +126,7 @@ func getMyMaxBuyAmount2(Rtkn0, Rbnb0, txValue, amountOutMinVictim *big.Int, arra
 
 func assessProfitability(client *ethclient.Client, tkn_adddress common.Address, txValue, amountOutMinVictim, Rtkn0, Rbnb0 *big.Int) bool {
 	var expectedProfit = new(big.Int)
+	// [kyzooghost] If we are doing binary search with known increments, min and max bound, then why do we need to represent the entire binary search field as an array?
 	arrayOfInterest := global.SANDWICHER_LADDER
 
 	// only purpose of this function is to complete the struct BinaryResult via a binary search performed on the sandwich ladder we initialised in the config file. If we cannot even buy 1 BNB without breaking victim slippage, BinaryResult will be nil

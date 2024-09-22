@@ -66,7 +66,7 @@ func HandleSwapExactETHForTokens(tx *types.Transaction, client *ethclient.Client
 					fmt.Println("MonitorModeOnly: new sandwich possible: ", getTokenName(SwapData.Token, client), SwapData.Token)
 				}
 			}
-
+			// [kyzooghost] Interesting flag unknown market in local JSON for later manual testing
 		} else {
 			// if we identify a possible sandwich on a unknown market, we want register it and test hability to buy/sell with python scripts.
 			if global.NewMarketAdded[SwapData.Token] == false {

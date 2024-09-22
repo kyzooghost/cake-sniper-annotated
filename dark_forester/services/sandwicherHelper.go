@@ -182,6 +182,7 @@ func _waitForPendingState(client *ethclient.Client, txHash common.Hash, ctx cont
 		} else if timeCounter < 60 {
 			timeCounter += 1
 			time.Sleep(500 * time.Millisecond)
+			// [kyzooghost] So give up and return nil, if didn't return in first 60 queries
 		} else {
 			return nil
 		}

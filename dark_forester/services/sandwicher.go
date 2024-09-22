@@ -45,6 +45,7 @@ func sandwiching(tx *types.Transaction, client *ethclient.Client) {
 	fmt.Println("Name : ", getTokenName(SwapData.Token, client), "\n")
 	fmt.Println("pair : ", showPairAddress(), "\n")
 
+	// [kyzooghost] Interesting, you can wait on messages from two channels here
 	select {
 	case <-SomeoneTryToFuckMe:
 		//try to cancel the tx
@@ -88,6 +89,9 @@ func emmmergencyCancel(nonce uint64, client *ethclient.Client, gasPriceFront, ol
 	go WaitRoom(client, signedCancelTx.Hash(), FirstConfirmed, "cancel")
 
 	var firstTxConfirmed common.Hash
+	// [kyzooghost] for loop to consume multiple values from single channel until closed
+	// [kyzooghost] select to wait on multiple channels simultaneously
+	// [kyzooghost] for{select{}} to wait for values from multiple channels
 	for result := range FirstConfirmed {
 		if result.Status == 0 {
 			fmt.Println(result.Hash, "reverted")

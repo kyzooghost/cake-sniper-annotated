@@ -136,6 +136,7 @@ type UniswapAddLiquidityFinal struct {
 	UniswapAddLiquidityFinalInput `json:"inputs"`
 }
 
+// [kyzooghost] Deserialize calldata into struct
 func buildAddLiquidityData(tx *types.Transaction) UniswapAddLiquidityInput {
 
 	var addLiquidity UniswapAddLiquidityInput
@@ -193,7 +194,7 @@ func buildAddLiquidityFinal(tx *types.Transaction, client *ethclient.Client, add
 	return final
 }
 
-////////////////////// swapExactETHForTokens //////////////////////////////
+// //////////////////// swapExactETHForTokens //////////////////////////////
 type Result struct {
 	Hash   common.Hash
 	Status uint64

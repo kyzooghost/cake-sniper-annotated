@@ -96,11 +96,13 @@ func HandleSwapExactETHForTokens(tx *types.Transaction, client *ethclient.Client
 func HandleAddLiquidity(tx *types.Transaction, client *ethclient.Client, topSnipe chan *big.Int) {
 
 	// parse the info of the swap so that we can access it easily
+	// [kyzooghost] Do we need to deserialize the entire calldata into a struct, can we not just validate a selected portion of the serialized calldata?
 	var addLiquidity = buildAddLiquidityData(tx)
 
 	sender := getTxSenderAddressQuick(tx, client)
 	// security checks
 	// does the liquidity addition deals with the token i'm targetting?
+	// [kyzooghost] Should be a more elegant way to check the pair, can we add both to a set and check the set?
 	if addLiquidity.TokenAddressA == global.Snipe.TokenAddress || addLiquidity.TokenAddressB == global.Snipe.TokenAddress {
 		// does the liquidity is added on the right pair?
 		if addLiquidity.TokenAddressA == global.Snipe.TokenPaired || addLiquidity.TokenAddressB == global.Snipe.TokenPaired {
@@ -116,9 +118,13 @@ func HandleAddLiquidity(tx *types.Transaction, client *ethclient.Client, topSnip
 			}
 			// we check if the liquidity provider really possess the liquidity he wants to add, because it is possible tu be lured by other bots that fake liquidity addition.
 			checkBalanceTknLP := AmountTknMin.Cmp(tknBalanceSender)
+			// [kyzooghost] if AmountTknMin <= tknBalanceSender
+			// [kyzooghost] This code would really benefit from early returns
 			if checkBalanceTknLP == 0 || checkBalanceTknLP == -1 {
 				// we check if the liquidity provider add enough collateral (WBNB or BUSD) as expected by our configuration. Bc sometimes the dev fuck the pleb and add way less liquidity that was advertised on telegram.
+				// [kyzooghost] If AmountPairedMin > MinLiq, check more liquidity than min liquidity
 				if AmountPairedMin.Cmp(global.Snipe.MinLiq) == 1 {
+					// [kyzooghost] This variable is declared in txClassifier.go, must be a better way to signify which scope the variable comes from if it is from a different file.
 					if SNIPEBLOCK == false {
 
 						// reminder: the Clogg goroutine launched in dark_forester.go is still blocking and is waiting for the gas price value. Here we unblock it. And all the armed bees are launched, which clogg the mempool and increase the chances of successful sniping.

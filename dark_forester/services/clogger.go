@@ -74,9 +74,12 @@ func sendBee(client *ethclient.Client, ctx context.Context, bee Bee, HashResults
 // listen HashResults and fill HashSet with the hashs of the tx just sent
 func fillHashResults(HashResults chan common.Hash, beeNumber int, wg *sync.WaitGroup) {
 
+	// [kyzooghost] Iterate over a channel, until it is closed. Interesting.
 	for newHash := range HashResults {
+		// [kyzooghost] Dang, refering to HashSet as a closure zz, not a fan
 		HashSet = append(HashSet, newHash)
 		if len(HashSet) == beeNumber {
+			// [kyzooghost] We will close the channel from within the loop hmm.
 			close(HashResults)
 			wg.Done()
 			return
@@ -173,6 +176,8 @@ func loadClogger(client *ethclient.Client, ctx context.Context) {
 		log.Fatalln("loadClogger: cannot unmarshall data into swarm ", err)
 	}
 	for _, bee := range swarm {
+		// [kyzooghost] Unsure why we need mutex here, according to ChatGPT this prevents concurrent goroutine from access client.PendingNonceAt
+		// [kyzooghost] Unsure what race condition we are mitigating here? We don't call loadClogger concurrently?
 		guard.Lock()
 		bee.PendingNonce, err = client.PendingNonceAt(ctx, bee.Address)
 		guard.Unlock()
@@ -202,12 +207,14 @@ func Clogg(client *ethclient.Client, topAction <-chan *big.Int) {
 	beeNumber := len(Clogger)
 	fmt.Println("number of address ready to initialize TRIGGER at signal : ", beeNumber)
 
+	// [kyzooghost] ?Need to call wg.Add(1) so that later wg.Wait() will wait on this goroutine?
 	wg.Add(1)
 	go fillHashResults(HashResults, beeNumber, &wg)
 	fmt.Println("--> waiting for signal\nWarning: be sure TRIGGER is correctly parametrized")
 	SNIPEBLOCK = false
 
 	// the clogger is now loaded. We block here, waiting for the tx that will add liquidity. The signal will come from HandleAddLiquidityETH or HandleAddLiquidity from services/uniswapClassifier.
+	// [kyzooghost] Ahh interesting, this will block until value received from channel
 	gasPrice := <-topAction
 
 	// the signal has been receive. launching all tx
